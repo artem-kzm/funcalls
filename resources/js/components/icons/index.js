@@ -1,0 +1,9 @@
+export { default as PhoneSvg } from './PhoneSvg';
+export { default as LoadingSvg } from './LoadingSvg';
+export { default as CheckSvg } from './CheckSvg';
+export { default as CloseSvg } from './CloseSvg';
+export { default as MicrophoneOnSvg } from './MicrophoneOnSvg';
+export { default as MicrophoneOffSvg } from './MicrophoneOffSvg';
+export { default as VideoOnSvg } from './VideoOnSvg';
+export { default as VideoOffSvg } from './VideoOffSvg';
+export { default as PhoneEndSvg } from './PhoneEndSvg';
