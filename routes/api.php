@@ -5,6 +5,8 @@ use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\IceServersController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\TranscriptionTokenController;
+use App\Http\Controllers\TranscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest:sanctum')->group(function () {
@@ -23,4 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/call/answer', [CallController::class, 'answer']);
     Route::post('/call/end', [CallController::class, 'end']);
     Route::post('/call/webrtc/signal', [CallController::class, 'signal']);
+    Route::post('/call/transcription/process', [TranscriptionController::class, 'process']);
+
+    Route::post('/transcription/token', [TranscriptionTokenController::class, 'generateEphemeralToken']);
 });

@@ -48,4 +48,14 @@ class User extends Authenticatable
         ->whereIn('status', [CallStatus::RINGING, CallStatus::ACTIVE])
         ->exists();
     }
+
+    public function isInActiveCall(): bool
+    {
+        return Call::where(function ($query) {
+            $query->where('caller_id', $this->id)
+                  ->orWhere('receiver_id', $this->id);
+        })
+        ->where('status', CallStatus::ACTIVE)
+        ->exists();
+    }
 }

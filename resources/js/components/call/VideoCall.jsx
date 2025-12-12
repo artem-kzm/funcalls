@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useOpenAITranscription } from '../../hooks/useOpenAITranscription';
 import CallEndedModal from './CallEndedModal';
 import VideoFrame from './VideoFrame';
 import { RoundButton } from '../ui';
@@ -26,6 +27,26 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
     const [emojiReactions, setEmojiReactions] = useState([]);
     const [showEndedModal, setShowEndedModal] = useState(false);
     const [iceServers, setIceServers] = useState(null);
+    const [transcriptionToken, setTranscriptionToken] = useState(null);
+
+    const handleTranscriptionChanged = (transcript) => {
+        if (!transcript) {
+            return;
+        }
+
+        window.axios.post('/api/call/transcription/process', {
+            transcript: transcript,
+        });
+    };
+
+    const {
+        startTranscription,
+        stopTranscription,
+    } = useOpenAITranscription({
+        mediaStream: localStream,
+        ephemeralToken: transcriptionToken,
+        onTranscriptionChanged: handleTranscriptionChanged,
+    });
 
     useEffect(() => {
         fetchIceServers();
@@ -73,6 +94,18 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
         initializeCall();
     }, [iceServers]);
 
+    useEffect(() => {
+        if (!transcriptionToken || !localStream) {
+            return;
+        }
+
+        startTranscription();
+
+        return () => {
+            stopTranscription();
+        };
+    }, [transcriptionToken, localStream]);
+
     const fetchIceServers = async () => {
         try {
             const response = await window.axios.get('/api/ice-servers');
@@ -80,6 +113,19 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
         } catch (err) {
             console.error('Error fetching ICE servers:', err);
             setError('Failed to fetch ICE servers configuration.');
+        }
+    };
+
+    const fetchTranscriptionToken = async () => {
+        try {
+            const response = await window.axios.post('/api/transcription/token', {
+                provider: 'open-ai',
+            });
+
+            setTranscriptionToken(response.data.token);
+        } catch (err) {
+            console.error('Error fetching transcription token:', err);
+            setError('Failed to fetch transcription token.');
         }
     };
 
@@ -159,6 +205,7 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
         pc.onconnectionstatechange = () => {
             if (pc.connectionState === 'connected') {
                 setCallStatus('connected');
+                fetchTranscriptionToken();
                 return;
             }
 
@@ -237,6 +284,8 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
     };
 
     const cleanup = () => {
+        stopTranscription();
+
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
         }
@@ -372,6 +421,25 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
                     title="End call"
                     icon={<PhoneEndSvg />}
                 />
+            </div>
+
+            <div className="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Get emoji reactions on your video!</h3>
+                <p className="text-xs text-gray-600 mb-2">
+                    During the call, based on what you say, an emoji reaction will appear on your video feed.
+                    AI analyzes your speech in real-time to pick the perfect emoji to express your feelings.
+                </p>
+                <div className="text-xs text-gray-600 space-y-1">
+                    <p><span className="font-medium">Available:</span> 😀 😢 😡 ❤️ 😂 🤔 🎉 😊 🧠 🌟 💩 👍 👎</p>
+                    <p><span className="font-medium">Examples:</span></p>
+                    <ul className="ml-4 space-y-0.5">
+                        <li>• "I'm so happy today" → 😊</li>
+                        <li>• "That's a smart idea!" → 🧠</li>
+                        <li>• "I love you" → ❤️</li>
+                        <li>• "Let me think about it" → 🤔</li>
+                        <li>• "I like it" → 👍</li>
+                    </ul>
+                </div>
             </div>
 
             {/* CSS for emoji animations */}
