@@ -65,13 +65,8 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
         });
 
         if (isCaller) {
-            channel.listen('.call-answered', async () => {
+            channel.listen('.call-answered', () => {
                 setCallStatus('connecting');
-                try {
-                    await createAndSendOffer();
-                } catch (error) {
-                    console.error('[VideoCall] Error creating offer:', error);
-                }
             });
         }
 
@@ -93,6 +88,20 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
 
         initializeCall();
     }, [iceServers]);
+
+    useEffect(() => {
+        if (!localStream || !iceServers) {
+            return;
+        }
+
+        createPeerConnection(localStream);
+
+        handlePendingWebRTCSignal();
+
+        if (isCaller && callStatus === 'connecting') {
+            createAndSendOffer();
+        }
+    }, [localStream, iceServers, callStatus]);
 
     useEffect(() => {
         if (!transcriptionToken || !localStream) {
@@ -149,8 +158,6 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
             if (audioTrack) {
                 audioTrack.enabled = false;
             }
-
-            createPeerConnection(stream);
 
             if (isCaller) {
                 setCallStatus('ringing');
@@ -214,12 +221,6 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
             }
         };
 
-        if (pendingSignalsRef.current.length > 0) {
-            const signals = [...pendingSignalsRef.current];
-            pendingSignalsRef.current = [];
-            signals.forEach(signal => handleWebRTCSignal(signal));
-        }
-
         return pc;
     };
 
@@ -234,6 +235,14 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
             await sendSignal('offer', offer);
         } catch (err) {
             console.error('Error creating offer:', err);
+        }
+    };
+
+    const handlePendingWebRTCSignal = () => {
+        if (pendingSignalsRef.current.length > 0) {
+            const signals = [...pendingSignalsRef.current];
+            pendingSignalsRef.current = [];
+            signals.forEach(signal => handleWebRTCSignal(signal));
         }
     };
 
