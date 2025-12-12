@@ -19,15 +19,17 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
     const peerConnectionRef = useRef(null);
     const pendingSignalsRef = useRef([]);
 
+    const [readyToConnect, setReadyToConnect] = useState(false);
     const [localStream, setLocalStream] = useState(null);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [isAudioEnabled, setIsAudioEnabled] = useState(false);
     const [error, setError] = useState(null);
-    const [callStatus, setCallStatus] = useState('connecting');
+    const [callStatus, setCallStatus] = useState(isCaller ? 'ringing' : 'connecting');
     const [emojiReactions, setEmojiReactions] = useState([]);
     const [showEndedModal, setShowEndedModal] = useState(false);
     const [iceServers, setIceServers] = useState(null);
     const [transcriptionToken, setTranscriptionToken] = useState(null);
+    const [callAnswered, setCallAnswered] = useState(false);
 
     const handleTranscriptionChanged = (transcript) => {
         if (!transcript) {
@@ -66,7 +68,7 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
 
         if (isCaller) {
             channel.listen('.call-answered', () => {
-                setCallStatus('connecting');
+                setCallAnswered(true);
             });
         }
 
@@ -90,18 +92,23 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
     }, [iceServers]);
 
     useEffect(() => {
-        if (!localStream || !iceServers) {
+        if (!localStream) {
             return;
         }
 
         createPeerConnection(localStream);
 
         handlePendingWebRTCSignal();
+    }, [localStream]);
 
-        if (isCaller && callStatus === 'connecting') {
-            createAndSendOffer();
+    useEffect(() => {
+        if (!readyToConnect || !callAnswered) {
+            return;
         }
-    }, [localStream, iceServers, callStatus]);
+
+        setCallStatus('connecting');
+        createAndSendOffer();
+    }, [readyToConnect, callAnswered]);
 
     useEffect(() => {
         if (!transcriptionToken || !localStream) {
@@ -157,12 +164,6 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
             const audioTrack = stream.getAudioTracks()[0];
             if (audioTrack) {
                 audioTrack.enabled = false;
-            }
-
-            if (isCaller) {
-                setCallStatus('ringing');
-            } else {
-                setCallStatus('connecting');
             }
         } catch (err) {
             setError('Failed to access camera and microphone. Please check permissions.');
@@ -221,10 +222,16 @@ const VideoCall = ({ targetUsername, targetUserId, isCaller, onEndCall }) => {
             }
         };
 
+        setReadyToConnect(true);
+
         return pc;
     };
 
     const createAndSendOffer = async () => {
+        if (!isCaller) {
+            return;
+        }
+
         try {
             const pc = peerConnectionRef.current;
             if (!pc) return;
